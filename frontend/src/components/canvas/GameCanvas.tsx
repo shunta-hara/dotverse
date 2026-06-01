@@ -22,7 +22,7 @@ export function GameCanvas() {
   const [, setTick] = useState(0);
   const [landToast, setLandToast] = useState<LandSummary | null>(null);
   const currentLandIdRef = useRef<string | null>(null);
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     const canvas = canvasRef.current;
