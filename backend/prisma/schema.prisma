@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  username     String    @unique @db.VarChar(20)
+  email        String    @unique @db.VarChar(255)
+  passwordHash String    @map("password_hash") @db.Char(60)
+  speechCount  Int       @default(0) @map("speech_count")
+  profile      String    @default("")
+  lastX        Int       @default(5000) @map("last_x")
+  lastY        Int       @default(5000) @map("last_y")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  lastActiveAt DateTime  @default(now()) @map("last_active_at")
+
+  lands        Land[]
+  signs        Sign[]
+  subscription Subscription?
+
+  @@map("users")
+}
+
+model Land {
+  id          String    @id @default(uuid())
+  ownerId     String    @map("owner_id")
+  name        String    @db.VarChar(100)
+  description String    @default("")
+  x           Int       @db.SmallInt
+  y           Int       @db.SmallInt
+  width       Int       @default(20) @db.SmallInt
+  height      Int       @default(20) @db.SmallInt
+  createdAt   DateTime  @default(now()) @map("created_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  owner User  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  signs Sign[]
+
+  @@index([ownerId])
+  @@index([x, y])
+  @@map("lands")
+}
+
+model Sign {
+  id        String    @id @default(uuid())
+  ownerId   String    @map("owner_id")
+  landId    String?   @map("land_id")
+  x         Int       @db.SmallInt
+  y         Int       @db.SmallInt
+  title     String    @db.VarChar(100)
+  content   String    @default("")
+  createdAt DateTime  @default(now()) @map("created_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  owner User  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  land  Land? @relation(fields: [landId], references: [id], onDelete: SetNull)
+
+  @@index([x, y])
+  @@index([ownerId])
+  @@map("signs")
+}
+
+model Subscription {
+  id        String    @id @default(uuid())
+  userId    String    @unique @map("user_id")
+  plan      String    @default("free")
+  startedAt DateTime? @map("started_at")
+  expiresAt DateTime? @map("expires_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}

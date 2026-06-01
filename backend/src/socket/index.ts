@@ -1,0 +1,70 @@
+import type { Server as HttpServer } from "http";
+import { Server } from "socket.io";
+import { DISCONNECT_THRESHOLD_MS } from "../../../shared/constants";
+import type {
+  ClientToServerEvents,
+  ServerToClientEvents,
+  SocketData,
+} from "../../../shared/types/socket";
+import { verifyToken } from "../middleware/auth";
+import { world } from "../world/inMemoryWorld";
+import { registerChatHandlers } from "./handlers/chatHandler";
+import { registerPlayerHandlers } from "./handlers/playerHandler";
+
+type AppServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
+let ioInstance: AppServer | null = null;
+export const getIo = (): AppServer | null => ioInstance;
+
+export function createSocketServer(httpServer: HttpServer): AppServer {
+  const io = new Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>(
+    httpServer,
+    {
+      cors: {
+        origin: process.env.FRONTEND_URL,
+        credentials: true,
+      },
+    }
+  );
+
+  io.use((socket, next) => {
+    const cookieHeader = socket.handshake.headers.cookie ?? "";
+    const tokenMatch = cookieHeader.match(/dotverse_token=([^;]+)/);
+    const token = tokenMatch?.[1];
+
+    if (!token) {
+      next(new Error("UNAUTHORIZED"));
+      return;
+    }
+
+    try {
+      const payload = verifyToken(token);
+      socket.data.userId = payload.sub;
+      socket.data.username = payload.username;
+      socket.data.isSupporter = payload.isSupporter;
+      next();
+    } catch {
+      next(new Error("UNAUTHORIZED"));
+    }
+  });
+
+  ioInstance = io;
+
+  io.on("connection", (socket) => {
+    registerPlayerHandlers(io, socket);
+    registerChatHandlers(io, socket);
+  });
+
+  // 30分無応答プレイヤーを強制切断
+  setInterval(() => {
+    const now = Date.now();
+    for (const socketId of world.getAllSocketIds()) {
+      const player = world.getBySocketId(socketId);
+      if (!player) continue;
+      if (now - player.lastActiveAt > DISCONNECT_THRESHOLD_MS) {
+        io.sockets.sockets.get(socketId)?.disconnect(true);
+      }
+    }
+  }, 60_000);
+
+  return io;
+}
