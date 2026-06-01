@@ -31,3 +31,6 @@ backend/prisma/migrations/dev.db
 # Railway / Vercel
 .vercel/
 .railway/
+
+# Project-specific excludes
+docs/
