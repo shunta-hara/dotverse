@@ -41,9 +41,13 @@ app.use((err: Error & { statusCode?: number }, _req: express.Request, res: expre
   });
 });
 
-createSocketServer(httpServer);
-
 const PORT = Number(process.env.PORT ?? 4000);
-httpServer.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+
+createSocketServer(httpServer).then(() => {
+  httpServer.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}).catch((err) => {
+  console.error("Failed to start server:", err);
+  process.exit(1);
 });

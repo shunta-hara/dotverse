@@ -1,5 +1,7 @@
 import type { Server as HttpServer } from "http";
 import { Server } from "socket.io";
+import { createAdapter } from "@socket.io/redis-adapter";
+import { Redis } from "ioredis";
 import { DISCONNECT_THRESHOLD_MS } from "../../../shared/constants";
 import type {
   ClientToServerEvents,
@@ -15,7 +17,7 @@ type AppServer = Server<ClientToServerEvents, ServerToClientEvents, Record<strin
 let ioInstance: AppServer | null = null;
 export const getIo = (): AppServer | null => ioInstance;
 
-export function createSocketServer(httpServer: HttpServer): AppServer {
+export async function createSocketServer(httpServer: HttpServer): Promise<AppServer> {
   const io = new Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>(
     httpServer,
     {
@@ -25,6 +27,18 @@ export function createSocketServer(httpServer: HttpServer): AppServer {
       },
     }
   );
+
+  // Redis adapter (複数ECSタスク間のpub/sub)
+  if (process.env.REDIS_URL) {
+    const pubClient = new Redis(process.env.REDIS_URL, { tls: process.env.REDIS_URL.startsWith("rediss://") ? {} : undefined });
+    const subClient = pubClient.duplicate();
+    await Promise.all([
+      new Promise<void>((res, rej) => pubClient.once("ready", res).once("error", rej)),
+      new Promise<void>((res, rej) => subClient.once("ready", res).once("error", rej)),
+    ]);
+    io.adapter(createAdapter(pubClient, subClient));
+    console.log("Socket.IO: Redis adapter connected");
+  }
 
   io.use((socket, next) => {
     const cookieHeader = socket.handshake.headers.cookie ?? "";

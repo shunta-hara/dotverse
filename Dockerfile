@@ -18,4 +18,13 @@ COPY --from=builder /app/backend/dist ./backend/dist
 COPY --from=builder /app/backend/prisma ./backend/prisma
 
 EXPOSE 4000
-CMD ["sh", "-c", "cd /app/backend && node_modules/.bin/prisma migrate deploy && node dist/backend/src/index.js"]
+
+# DATABASE_URL は直接渡すか、DB_HOST/DB_USER/DB_PASSWORD/DB_NAME から組み立てる
+CMD ["sh", "-c", "\
+  if [ -z \"$DATABASE_URL\" ]; then \
+    export DATABASE_URL=\"postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}?sslmode=require\"; \
+  fi && \
+  cd /app/backend && \
+  node_modules/.bin/prisma migrate deploy && \
+  node dist/backend/src/index.js \
+"]
