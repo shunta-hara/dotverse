@@ -12,6 +12,8 @@ import signsRouter from "./routes/signs";
 const app = express();
 const httpServer = createServer(app);
 
+// リバースプロキシ配下では、信頼するホップ数を指定しないとレート制限が全員同一 IP 扱いになる
+app.set("trust proxy", Number(process.env.TRUST_PROXY_HOPS ?? 0));
 app.use(helmet());
 app.use(cors({
   origin: process.env.FRONTEND_URL,

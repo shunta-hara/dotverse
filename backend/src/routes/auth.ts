@@ -6,6 +6,7 @@ import {
   cookieOptions,
   hashPassword,
   isSupporter,
+  signSocketToken,
   signToken,
   verifyPassword,
 } from "../services/authService";
@@ -162,6 +163,16 @@ router.get("/me", requireAuth, async (req, res) => {
       createdAt: user.createdAt.toISOString(),
     },
   });
+});
+
+router.post("/socket-token", requireAuth, (req, res) => {
+  if (!req.user) {
+    res.status(401).json({ error: "UNAUTHORIZED", message: "認証が必要です" });
+    return;
+  }
+  // iat/exp を引き継ぐと jwt.sign が衝突するため、必要な項目だけ写す
+  const { sub, username, isSupporter: supporter } = req.user;
+  res.json({ token: signSocketToken({ sub, username, isSupporter: supporter }) });
 });
 
 router.post("/forgot-password", forgotLimit, (_req, res) => {

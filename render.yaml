@@ -1,0 +1,19 @@
+# Render Blueprint（無料プラン）。DB は Neon の無料 Postgres を使う。
+services:
+  - type: web
+    name: dotverse-backend
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL # Neon の接続文字列（pooler ではない direct 接続）を手動で設定
+        sync: false
+      - key: FRONTEND_URL # Vercel の URL（例: https://dotverse.vercel.app）を手動で設定
+        sync: false
+      - key: TRUST_PROXY_HOPS # Vercel → Render の2段。デプロイ後にレート制限が個人単位か確認する
+        value: "2"

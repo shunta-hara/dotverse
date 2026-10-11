@@ -8,7 +8,7 @@ import type {
   ServerToClientEvents,
   SocketData,
 } from "../../../shared/types/socket";
-import { verifyToken } from "../middleware/auth";
+import { authenticateHandshake } from "./authenticate";
 import { world } from "../world/inMemoryWorld";
 import { registerChatHandlers } from "./handlers/chatHandler";
 import { registerPlayerHandlers } from "./handlers/playerHandler";
@@ -41,17 +41,8 @@ export async function createSocketServer(httpServer: HttpServer): Promise<AppSer
   }
 
   io.use((socket, next) => {
-    const cookieHeader = socket.handshake.headers.cookie ?? "";
-    const tokenMatch = cookieHeader.match(/dotverse_token=([^;]+)/);
-    const token = tokenMatch?.[1];
-
-    if (!token) {
-      next(new Error("UNAUTHORIZED"));
-      return;
-    }
-
     try {
-      const payload = verifyToken(token);
+      const payload = authenticateHandshake(socket.handshake);
       socket.data.userId = payload.sub;
       socket.data.username = payload.username;
       socket.data.isSupporter = payload.isSupporter;

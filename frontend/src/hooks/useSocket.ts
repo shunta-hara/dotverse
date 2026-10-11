@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { io, type Socket } from "socket.io-client";
 import type { ClientToServerEvents, ServerToClientEvents } from "@shared/types/socket";
 import { BUBBLE_DISPLAY_MS } from "@shared/constants";
+import { api } from "@/lib/api";
 import { useGameStore } from "@/store/gameStore";
 
 type AppSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -16,6 +17,14 @@ export function getSocket(): AppSocket {
     g.__dotverseSocket = io(process.env.NEXT_PUBLIC_WS_URL ?? "http://localhost:4000", {
       withCredentials: true,
       transports: ["websocket"],
+      // 別オリジン構成では Cookie が届かないため、接続（再接続）のたびに短命トークンを取得して渡す。
+      // 取得に失敗したら空で接続し、Cookie 認証（同一オリジン・ローカル）にフォールバックする。
+      auth: (cb) => {
+        api
+          .post<{ token: string }>("/auth/socket-token")
+          .then(({ token }) => cb({ token }))
+          .catch(() => cb({}));
+      },
     });
   }
   return g.__dotverseSocket;

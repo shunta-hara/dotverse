@@ -17,6 +17,13 @@ export function signToken(payload: JwtPayload): string {
   return jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: JWT_EXPIRES_IN });
 }
 
+export const SOCKET_TOKEN_EXPIRES_IN_SECONDS = 60;
+
+// WebSocket 接続専用の短命トークン。HttpOnly Cookie を JS から読めないまま、別オリジンの Socket.IO に認証を渡す
+export function signSocketToken(payload: JwtPayload): string {
+  return jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: SOCKET_TOKEN_EXPIRES_IN_SECONDS });
+}
+
 export function cookieOptions() {
   const isProd = process.env.NODE_ENV === "production";
   return {
