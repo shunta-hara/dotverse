@@ -9,6 +9,7 @@ import { prisma } from "../../db/client";
 import { isSupporter } from "../../services/authService";
 import { getLandsInArea } from "../../services/landService";
 import { validateMove } from "../../utils/moveValidator";
+import { isFiniteNumber, isRecord } from "../../utils/payload";
 import { world } from "../../world/inMemoryWorld";
 
 type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
@@ -87,9 +88,15 @@ export function registerPlayerHandlers(io: AppServer, socket: AppSocket): void {
 
   let lastMoveTime = Date.now();
 
-  socket.on("player:move", ({ x, y }) => {
+  socket.on("player:move", (payload: unknown) => {
     const self = world.getBySocketId(socket.id);
     if (!self) return;
+
+    if (!isRecord(payload) || !isFiniteNumber(payload.x) || !isFiniteNumber(payload.y)) {
+      socket.emit("error", { code: "INVALID_POSITION", message: "不正な移動です" });
+      return;
+    }
+    const { x, y } = payload;
 
     const now = Date.now();
     const elapsed = now - lastMoveTime;
@@ -135,8 +142,9 @@ export function registerPlayerHandlers(io: AppServer, socket: AppSocket): void {
     }
   });
 
-  socket.on("player:color", ({ color }) => {
-    if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {
+  socket.on("player:color", (payload: unknown) => {
+    const color = isRecord(payload) ? payload.color : undefined;
+    if (typeof color !== "string" || !/^#[0-9A-Fa-f]{6}$/.test(color)) {
       socket.emit("error", { code: "COLOR_INVALID", message: "カラーコードの形式が正しくありません" });
       return;
     }

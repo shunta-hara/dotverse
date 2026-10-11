@@ -7,6 +7,7 @@ import type {
 } from "../../../../shared/types/socket";
 import { prisma } from "../../db/client";
 import { containsNgWord } from "../../utils/ngWordFilter";
+import { isRecord } from "../../utils/payload";
 import { world } from "../../world/inMemoryWorld";
 
 type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
@@ -15,11 +16,12 @@ type AppServer = Server<ClientToServerEvents, ServerToClientEvents, Record<strin
 export function registerChatHandlers(io: AppServer, socket: AppSocket): void {
   let lastChatTime = 0;
 
-  socket.on("chat:send", async ({ content }) => {
+  socket.on("chat:send", async (payload: unknown) => {
     const self = world.getBySocketId(socket.id);
     if (!self) return;
 
-    if (!content || content.trim().length === 0 || content.length > CHAT_MAX_CHARS) {
+    const content = isRecord(payload) ? payload.content : undefined;
+    if (typeof content !== "string" || content.trim().length === 0 || content.length > CHAT_MAX_CHARS) {
       socket.emit("error", { code: "CHAT_CONTENT_INVALID", message: "メッセージが無効です" });
       return;
     }
@@ -68,12 +70,17 @@ export function registerChatHandlers(io: AppServer, socket: AppSocket): void {
       }
     }
 
-    await prisma.user.update({
-      where: { id: self.userId },
-      data: {
-        speechCount: { increment: 1 },
-        lastActiveAt: new Date(),
-      },
-    });
+    try {
+      await prisma.user.update({
+        where: { id: self.userId },
+        data: {
+          speechCount: { increment: 1 },
+          lastActiveAt: new Date(),
+        },
+      });
+    } catch (err) {
+      // 配信済みの発言は取り消せない。DB 障害でプロセスを落とさない
+      console.error("chat:send speechCount update failed:", err);
+    }
   });
 }
